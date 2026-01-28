@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
@@ -10,17 +12,32 @@ const MONGO_URI = process.env.MONGO_URI;
 const client = new MongoClient(MONGO_URI);
 let productsCollection;
 
+// ===== CONNECT DB =====
 async function connectDB() {
-  await client.connect();
-  const db = client.db('shop');
-  productsCollection = db.collection('products');
-  console.log('Connected to MongoDB Atlas');
+  try {
+    await client.connect();
+    const db = client.db('shop');
+    productsCollection = db.collection('products');
+    console.log('Connected to MongoDB Atlas');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+  }
 }
+
 connectDB();
 
 // ===== ROOT =====
 app.get('/', (req, res) => {
   res.json({ message: 'Practice Task 11 API is running' });
+});
+
+// ===== VERSION (Practice Task 12) =====
+app.get('/version', (req, res) => {
+  res.json({
+    version: '1.1.0',
+    task: 'Practice Task 12',
+    status: 'updated'
+  });
 });
 
 // ===== GET ALL =====
@@ -68,7 +85,7 @@ app.post('/api/products', async (req, res) => {
   }
 });
 
-// ===== PUT (UPDATE) =====
+// ===== PUT =====
 app.put('/api/products/:id', async (req, res) => {
   const { id } = req.params;
   const { name, price, category } = req.body;
@@ -119,6 +136,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'API endpoint not found' });
 });
 
+// ===== START SERVER =====
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
