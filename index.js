@@ -24,6 +24,16 @@ async function connectDB() {
 }
 connectDB();
 
+// ===== VERSION =====
+app.get('/version', (req, res) => {
+  res.json({
+    version: '1.0.0',
+    name: 'Practice Task 12 API',
+    status: 'running'
+  });
+});
+
+
 // ===== ROOT =====
 app.get('/', (req, res) => {
   res.json({ message: 'Practice Task 13 API is running', version: '1.0.0' });
