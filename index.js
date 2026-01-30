@@ -6,10 +6,25 @@ const { MongoClient, ObjectId } = require('mongodb');
 const app = express();
 app.use(express.json());
 
+const API_KEY = process.env.API_KEY;
+
+function apiKeyMiddleware(req, res, next) {
+  const clientKey = req.headers['x-api-key'];
+
+  if (!clientKey) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (clientKey !== API_KEY) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}
+
+
 // ===== CONFIG =====
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
-const API_KEY = process.env.API_KEY;
 
 // ===== DB =====
 const client = new MongoClient(MONGO_URI);
