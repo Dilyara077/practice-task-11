@@ -9,6 +9,20 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 
+// ===== API KEY (Practice Task 14) =====
+const API_KEY = 'my-secret-key';
+
+// ===== AUTH MIDDLEWARE =====
+function apiKeyAuth(req, res, next) {
+  const key = req.headers['x-api-key'];
+
+  if (!key || key !== API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  next();
+}
+
 const client = new MongoClient(MONGO_URI);
 let itemsCollection;
 
@@ -17,29 +31,28 @@ async function connectDB() {
     await client.connect();
     const db = client.db('shop');
     itemsCollection = db.collection('items');
-    console.log('Connected to MongoDB');
+    console.log('Connected to MongoDB Atlas');
   } catch (err) {
     console.error('MongoDB connection error:', err);
   }
 }
 connectDB();
 
+// ===== ROOT =====
+app.get('/', (req, res) => {
+  res.json({ message: 'Practice Task 14 API is running' });
+});
+
 // ===== VERSION =====
 app.get('/version', (req, res) => {
   res.json({
-    version: '1.0.0',
-    name: 'Practice Task 12 API',
-    status: 'running'
+    version: '1.2.0',
+    task: 'Practice Task 14',
+    protection: 'API key middleware'
   });
 });
 
-
-// ===== ROOT =====
-app.get('/', (req, res) => {
-  res.json({ message: 'Practice Task 13 API is running', version: '1.0.0' });
-});
-
-// ===== GET ALL =====
+// ===== GET ALL (UNPROTECTED) =====
 app.get('/api/items', async (req, res) => {
   try {
     const items = await itemsCollection.find().toArray();
@@ -49,7 +62,7 @@ app.get('/api/items', async (req, res) => {
   }
 });
 
-// ===== GET BY ID =====
+// ===== GET BY ID (UNPROTECTED) =====
 app.get('/api/items/:id', async (req, res) => {
   const { id } = req.params;
 
@@ -68,8 +81,8 @@ app.get('/api/items/:id', async (req, res) => {
   }
 });
 
-// ===== POST =====
-app.post('/api/items', async (req, res) => {
+// ===== POST (PROTECTED) =====
+app.post('/api/items', apiKeyAuth, async (req, res) => {
   const { name, price } = req.body;
 
   if (!name || price === undefined) {
@@ -84,8 +97,8 @@ app.post('/api/items', async (req, res) => {
   }
 });
 
-// ===== PUT (FULL UPDATE) =====
-app.put('/api/items/:id', async (req, res) => {
+// ===== PUT (PROTECTED) =====
+app.put('/api/items/:id', apiKeyAuth, async (req, res) => {
   const { id } = req.params;
   const { name, price } = req.body;
 
@@ -103,14 +116,14 @@ app.put('/api/items/:id', async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    res.json({ message: 'Item updated (PUT)' });
+    res.json({ message: 'Item updated' });
   } catch {
     res.status(500).json({ error: 'Database error' });
   }
 });
 
-// ===== PATCH (PARTIAL UPDATE) =====
-app.patch('/api/items/:id', async (req, res) => {
+// ===== PATCH (PROTECTED) =====
+app.patch('/api/items/:id', apiKeyAuth, async (req, res) => {
   const { id } = req.params;
 
   if (!ObjectId.isValid(id)) {
@@ -127,14 +140,14 @@ app.patch('/api/items/:id', async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    res.json({ message: 'Item updated (PATCH)' });
+    res.json({ message: 'Item updated' });
   } catch {
     res.status(500).json({ error: 'Database error' });
   }
 });
 
-// ===== DELETE =====
-app.delete('/api/items/:id', async (req, res) => {
+// ===== DELETE (PROTECTED) =====
+app.delete('/api/items/:id', apiKeyAuth, async (req, res) => {
   const { id } = req.params;
 
   if (!ObjectId.isValid(id)) {
@@ -148,7 +161,7 @@ app.delete('/api/items/:id', async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    res.status(204).send();
+    res.json({ message: 'Item deleted' });
   } catch {
     res.status(500).json({ error: 'Database error' });
   }
