@@ -6,23 +6,12 @@ const { MongoClient, ObjectId } = require('mongodb');
 const app = express();
 app.use(express.json());
 
+// ===== CONFIG =====
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
+const API_KEY = process.env.API_KEY;
 
-// ===== API KEY (Practice Task 14) =====
-const API_KEY = 'my-secret-key';
-
-// ===== AUTH MIDDLEWARE =====
-function apiKeyAuth(req, res, next) {
-  const key = req.headers['x-api-key'];
-
-  if (!key || key !== API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  next();
-}
-
+// ===== DB =====
 const client = new MongoClient(MONGO_URI);
 let itemsCollection;
 
@@ -31,28 +20,39 @@ async function connectDB() {
     await client.connect();
     const db = client.db('shop');
     itemsCollection = db.collection('items');
-    console.log('Connected to MongoDB Atlas');
+    console.log('Connected to MongoDB');
   } catch (err) {
     console.error('MongoDB connection error:', err);
   }
 }
 connectDB();
 
+// ===== AUTH MIDDLEWARE =====
+function authMiddleware(req, res, next) {
+  const apiKey = req.headers['x-api-key'];
+
+  if (!apiKey || apiKey !== API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  next();
+}
+
 // ===== ROOT =====
 app.get('/', (req, res) => {
-  res.json({ message: 'Practice Task 14 API is running' });
+  res.json({ message: 'API is running' });
 });
 
-// ===== VERSION =====
+// ===== VERSION (Practice Task 12) =====
 app.get('/version', (req, res) => {
   res.json({
-    version: '1.2.0',
-    task: 'Practice Task 14',
-    protection: 'API key middleware'
+    version: '1.0.0',
+    name: 'Practice Task API',
+    status: 'stable'
   });
 });
 
-// ===== GET ALL (UNPROTECTED) =====
+// ===== GET ALL ITEMS =====
 app.get('/api/items', async (req, res) => {
   try {
     const items = await itemsCollection.find().toArray();
@@ -62,7 +62,7 @@ app.get('/api/items', async (req, res) => {
   }
 });
 
-// ===== GET BY ID (UNPROTECTED) =====
+// ===== GET ITEM BY ID =====
 app.get('/api/items/:id', async (req, res) => {
   const { id } = req.params;
 
@@ -82,48 +82,23 @@ app.get('/api/items/:id', async (req, res) => {
 });
 
 // ===== POST (PROTECTED) =====
-app.post('/api/items', apiKeyAuth, async (req, res) => {
-  const { name, price } = req.body;
+app.post('/api/items', authMiddleware, async (req, res) => {
+  const { name, price, category } = req.body;
 
-  if (!name || price === undefined) {
+  if (!name || price === undefined || !category) {
     return res.status(400).json({ error: 'Missing fields' });
   }
 
   try {
-    const result = await itemsCollection.insertOne({ name, price });
+    const result = await itemsCollection.insertOne({ name, price, category });
     res.status(201).json({ id: result.insertedId });
   } catch {
     res.status(500).json({ error: 'Database error' });
   }
 });
 
-// ===== PUT (PROTECTED) =====
-app.put('/api/items/:id', apiKeyAuth, async (req, res) => {
-  const { id } = req.params;
-  const { name, price } = req.body;
-
-  if (!ObjectId.isValid(id)) {
-    return res.status(400).json({ error: 'Invalid ID' });
-  }
-
-  try {
-    const result = await itemsCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { name, price } }
-    );
-
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ error: 'Item not found' });
-    }
-
-    res.json({ message: 'Item updated' });
-  } catch {
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
 // ===== PATCH (PROTECTED) =====
-app.patch('/api/items/:id', apiKeyAuth, async (req, res) => {
+app.patch('/api/items/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
 
   if (!ObjectId.isValid(id)) {
@@ -140,14 +115,14 @@ app.patch('/api/items/:id', apiKeyAuth, async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    res.json({ message: 'Item updated' });
+    res.json({ message: 'Item updated successfully' });
   } catch {
     res.status(500).json({ error: 'Database error' });
   }
 });
 
-// ===== DELETE (PROTECTED) =====
-app.delete('/api/items/:id', apiKeyAuth, async (req, res) => {
+// ===== DELETE (OPTIONAL, PROTECTED) =====
+app.delete('/api/items/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
 
   if (!ObjectId.isValid(id)) {
@@ -161,7 +136,7 @@ app.delete('/api/items/:id', apiKeyAuth, async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    res.json({ message: 'Item deleted' });
+    res.json({ message: 'Item deleted successfully' });
   } catch {
     res.status(500).json({ error: 'Database error' });
   }
@@ -169,9 +144,10 @@ app.delete('/api/items/:id', apiKeyAuth, async (req, res) => {
 
 // ===== 404 =====
 app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+  res.status(404).json({ error: 'API endpoint not found' });
 });
 
+// ===== START =====
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
